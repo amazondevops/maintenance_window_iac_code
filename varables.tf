@@ -75,5 +75,4 @@ variable "window_target" {
     key    = "tag:PatchGroup"
     values = "WinUpdate"
   }
-
 }
