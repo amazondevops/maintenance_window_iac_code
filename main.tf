@@ -6,9 +6,6 @@ resource "aws_ssm_maintenance_window" "install_window" {
   cutoff   = var.maintenance_window_cutoff
 }
 
-
-
-
 #Assigning the targets using tag:PatchGroup for the maintenance window
 resource "aws_ssm_maintenance_window_target" "target_install" {
   window_id     = aws_ssm_maintenance_window.install_window.id
@@ -18,9 +15,6 @@ resource "aws_ssm_maintenance_window_target" "target_install" {
     values = [var.window_target.values]
   }
 }
-
-
-
 
 #Assigning the RunCommandTask to the maintenance windoow -> AWS-InstallWindowsUpdates
 resource "aws_ssm_maintenance_window_task" "task_install_patches" {
