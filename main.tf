@@ -6,6 +6,15 @@ resource "aws_ssm_maintenance_window" "install_window" {
   cutoff   = var.maintenance_window_cutoff
 }
 
+#Configuring the maintenance window
+resource "aws_ssm_maintenance_window" "install_window-1" {
+  name     = var.name
+  schedule = var.schedule
+  duration = var.maintenance_window_duration
+  cutoff   = var.maintenance_window_cutoff
+}
+
+
 #Assigning the targets using tag:PatchGroup for the maintenance window
 resource "aws_ssm_maintenance_window_target" "target_install" {
   window_id     = aws_ssm_maintenance_window.install_window.id
