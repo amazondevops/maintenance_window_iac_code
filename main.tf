@@ -101,7 +101,14 @@ resource "aws_security_group" "aud_dev_1_app_nodepool" {
     description = "Allow from Same VPC"
     from_port   = 0
     protocol    = "tcp"
-    to_port     = 8081
+    to_port     = 3389
+  }
+  ingress {
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "Allow from Same VPC"
+    from_port   = 22
+    protocol    = "tcp"
+    to_port     = 22
   }
 
   name   = "aud-dev-1-app-nodepool"
