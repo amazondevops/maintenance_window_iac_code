@@ -88,24 +88,17 @@ resource "aws_security_group" "aud_dev_1_app_nodepool" {
     to_port     = 0
   }
 
-  ingress {
-    description = "Allow from Same NSG"
-    from_port   = 0
-    protocol    = "-1"
-    self        = true
-    to_port     = 0
-  }
 
   ingress {
     cidr_blocks = ["0.0.0.0/0"]
-    description = "Allow from Same VPC"
+    description = ""
     from_port   = 0
     protocol    = "tcp"
     to_port     = 3389
   }
   ingress {
     cidr_blocks = ["0.0.0.0/0"]
-    description = "Allow from Same VPC"
+    description = ""
     from_port   = 22
     protocol    = "tcp"
     to_port     = 22
