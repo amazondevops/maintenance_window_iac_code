@@ -54,6 +54,51 @@ resource "aws_ssm_maintenance_window_task" "task_install_patches" {
   }
 }
 
+resource "aws_security_group" "aud_dev_1_app_nodepool" {
+  tags = {
+    Name              = "aud-dev-1-app-nodepool"
+    imported_resource = "true"
+    managedBy         = "terraform"
+    product_v2        = "AUD_QAE"
+  }
+
+  tags_all = {
+    Name              = "aud-dev-1-app-nodepool"
+    imported_resource = "true"
+    managedBy         = "terraform"
+    product_v2        = "AUD_QAE"
+  }
+
+  description = "aud-dev-1-app-nodepool"
+  egress {
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "Anywhere"
+    from_port   = 0
+    protocol    = "-1"
+    to_port     = 0
+  }
+
+
+  ingress {
+    cidr_blocks = ["0.0.0.0/0"]
+    description = ""
+    from_port   = 0
+    protocol    = "tcp"
+    to_port     = 3389
+  }
+  ingress {
+    cidr_blocks = ["0.0.0.0/0"]
+    description = ""
+    from_port   = 22
+    protocol    = "tcp"
+    to_port     = 22
+  }
+
+  name   = "aud-dev-1-app-nodepool"
+  vpc_id = "vpc-82913y493y3"
+}
+
+
 output targets {
   value = aws_ssm_maintenance_window_target.target_install.*.id
 }
