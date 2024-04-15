@@ -1,0 +1,239 @@
+---
+# Source: atlantis/templates/configmap-config.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: release-name-atlantis
+  labels:
+    app: atlantis
+    chart: atlantis-4.15.0
+    helm.sh/chart: atlantis-4.15.0
+    release: release-name
+    heritage: Helm
+data:
+  atlantis.yaml: |
+    ---
+    webhooks:
+     - event: apply
+       workspace-regex: .*
+       kind: slack
+       channel: prod-terraform-infra
+---
+# Source: atlantis/templates/configmap-repo-config.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: release-name-atlantis-repo-config
+  labels:
+    app: atlantis
+    chart: atlantis-4.15.0
+    helm.sh/chart: atlantis-4.15.0
+    release: release-name
+    heritage: Helm
+data:
+  repos.yaml: |
+    ---
+    # repos lists the config for specific repos.
+    repos:
+      - id: github.com/amazondevops/maintenance_window_iac_code
+        branch: /master/
+        workflow: conftest-testing  # Corrected workflow value
+        plan_requirements: [mergeable, undiverged]  # Corrected plan_requirements value
+        apply_requirements: [approved, mergeable, undiverged]  # Corrected apply_requirements value
+        import_requirements: [approved, mergeable, undiverged]  # Corrected import_requirements value
+        allowed_overrides: [workflow, apply_requirements, plan_requirements, delete_source_branch_on_merge, repo_locking]
+        allow_custom_workflows: true
+        delete_source_branch_on_merge: false
+        repo_locking: true
+        allowed_workflows: [stable, pocworkflow1]  # Moved allowed_workflows here
+        # pre_workflow_hooks defines arbitrary list of scripts to execute before workflow execution.
+        pre_workflow_hooks: 
+          - run:  echo "running preworkflow\n"
+        
+        # # post_workflow_hooks defines arbitrary list of scripts to execute after workflow execution.
+        # post_workflow_hooks: 
+        #   - run: echo "running postworkflow\n"
+        # post_workflow_hooks: 
+        #   - run: terraform show -json $PLANFILE > PLANFILE.json && conftest test --update git@bitbucket.org:junglee_games/jg-terraform-conftest-policies.git//policies/ PLANFILE.json || true
+        #     description: Run Terraform plan scan
+        post_workflow_hooks: 
+          - run: terraform show -json $PLANFILE > PLANFILE.json && checkov -f PLANFILE.json 
+            description: Run Terraform plan scan
+
+
+
+
+    # workflows lists server-side custom workflows
+    workflows:
+      stable:
+        plan:
+          steps:
+            - run: echo "running stable plan\n"
+            - init
+            - plan
+            - run: echo "Done with stable plan\n"
+        apply:
+          steps:
+            - run: echo "running stable apply\n"
+            - apply
+            - run: echo "Done with stable apply\n"
+      pocworkflow1:
+        plan:
+          steps:
+            - run: echo "running pocworkflow1 plan\n"
+            - init
+            - plan
+            - run: echo "Done with pocworkflow1 plan\n"
+        apply:
+          steps:
+            - run: echo "running pocworkflow1 apply\n"
+            - apply
+            - run: echo "Done with pocworkflow1 apply\n"
+
+      conftest-testing:  # Moved conftest-testing workflow outside workflows
+        plan:
+          steps:
+            - init
+            - run: echo ">>>>>>>>>>>>>>>>>>>>>>>>>>>>> Running plan for project $PROJECT_NAME at dir $DIR"
+            - run: terraform plan -input=false -refresh -out $PLANFILE
+            - run: echo ">>>>>>>>>>>>>>>>>>>>>>>>>>>>> Runned plan for project $PROJECT_NAME at dir $DIR"
+        apply:
+          steps:
+            - run: terraform apply $PLANFILE
+
+---
+# Source: atlantis/templates/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: release-name-atlantis
+  # annotations: 
+  #   service.beta.kubernetes.io/aws-load-balancer-type: "alb"
+  #   service.beta.kubernetes.io/aws-load-balancer-subnets: "subnet-01ed45a10850c0d1a,subnet-08044b0d2e460393d,subnet-07d37c5cb32f321d5"
+  labels:
+    app: atlantis
+    chart: atlantis-4.15.0
+    helm.sh/chart: atlantis-4.15.0
+    release: release-name
+    heritage: Helm
+spec:
+  type: LoadBalancer
+  ports:
+    - port: 80
+      targetPort: 4141
+      protocol: TCP
+      name: atlantis
+  selector:
+    app: atlantis
+    release: release-name
+---
+# Source: atlantis/templates/statefulset.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: release-name-atlantis
+  labels:
+    app: atlantis
+    chart: atlantis-4.15.0
+    helm.sh/chart: atlantis-4.15.0
+    release: release-name
+    heritage: Helm
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: atlantis
+      release: release-name
+  template:
+    metadata:
+      labels:
+        app: atlantis
+        release: release-name
+    spec:
+      volumes:
+        - name: repo-config
+          configMap:
+            name: release-name-atlantis-repo-config
+        - name: config
+          configMap:
+            name: release-name-atlantis
+      containers:
+        - name: atlantis
+          image: ghcr.io/runatlantis/atlantis:v0.26.0
+          imagePullPolicy: Always
+          args:
+            - server
+            - --checkout-strategy=merge
+            - --automerge
+          ports:
+            - name: atlantis
+              containerPort: 4141
+          env:
+            # - name: ATLANTIS_DATA_DIR
+            #   value: /atlantis-data
+            - name: ATLANTIS_REPO_ALLOWLIST
+              value: github.com/amazondevops/*
+            - name: ATLANTIS_PORT
+              value: "4141"
+            - name: ATLANTIS_REPO_CONFIG
+              value: /etc/atlantis/repos.yaml
+            - name: ATLANTIS_GH_USER
+              value: "sreekanthreddy437"
+            - name: ATLANTIS_GH_TOKEN
+              value: "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"
+            - name: ATLANTIS_GH_WEBHOOK_SECRET
+              value: "6ydb38eg8319y91h391"
+            # - name: ATLANTIS_WEB_BASIC_AUTH
+            #   value: "true"
+            # - name: ATLANTIS_WEB_USERNAME
+            #   value: "atlantis"
+            # - name: ATLANTIS_WEB_PASSWORD
+            #   value: "Test1234"
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 4141
+              scheme: HTTP
+            initialDelaySeconds: 5
+            periodSeconds: 60
+            timeoutSeconds: 5
+            successThreshold: 1
+            failureThreshold: 5
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 4141
+              scheme: HTTP
+            initialDelaySeconds: 5
+            periodSeconds: 60
+            timeoutSeconds: 5
+            successThreshold: 1
+            failureThreshold: 5
+          volumeMounts:
+            - name: repo-config
+              mountPath: /etc/atlantis/repos.yaml
+              subPath: repos.yaml
+              readOnly: true
+            # - name: atlantis-data
+            #   mountPath: /atlantis-data
+            # - name: config
+            #   mountPath: /etc/atlantis/atlantis.yaml
+            #   subPath: atlantis.yaml
+            #   readOnly: true
+          resources:
+            limits:
+              cpu: 2000m
+              memory: 2Gi
+            requests:
+              cpu: 1000m
+              memory: 2Gi
+  # volumeClaimTemplates:
+  # - metadata:
+  #     name: atlantis-data
+  #   spec:
+  #     accessModes: ["ReadWriteOnce"] # Volume should not be shared by multiple nodes.
+  #     resources:
+  #       requests:
+  #         # The biggest thing Atlantis stores is the Git repo when it checks it out.
+  #         # It deletes the repo after the pull request is merged.
+  #         storage: 2Gi
